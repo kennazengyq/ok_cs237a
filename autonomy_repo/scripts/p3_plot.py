@@ -60,7 +60,7 @@ class PlottingNode(Node):
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Theta")
         fig.legend()
-        filename = Path("src/autonomy_repo/plots/p3_output.png")
+        filename = Path("src/ok_cs237a/autonomy_repo/plots/p3_output.png")
         try:
             fig.savefig(filename)  # save the figure to file
         except OSError as e:
