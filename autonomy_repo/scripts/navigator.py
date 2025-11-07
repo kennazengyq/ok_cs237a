@@ -30,6 +30,8 @@ class Navigator(BaseNavigator):
         self.coeffs = np.zeros(8) # Polynomial coefficients for x(t) and y(t) as
                                   # returned by the differential flatness code
 
+        # self.create_subscription(TurtleBotState, '/tb3_state', self.state_)
+
 
     def compute_heading_control(self, currState: TurtleBotState, goalState: TurtleBotState) -> TurtleBotControl:
         error = goalState.theta - currState.theta
@@ -124,11 +126,11 @@ class Navigator(BaseNavigator):
         Returns:
             T.Optional[TrajectoryPlan]:
         """
-        astar = AStar(occupancy.origin_xy, occupancy.size_xy, (state.x, state.y), (goal.x, goal.y), occupancy, resolution)
+        astar = AStar((-horizon+state.x, -horizon+state.y), (horizon+state.x, horizon+state.y), (state.x, state.y), (goal.x, goal.y), occupancy, resolution)
         solution = astar.solve()
         if not solution:
             return None
-        path = np.asarray(self.path)
+        path = np.asarray(astar.path)
         if len(path) < 4:
             return None
         
@@ -196,7 +198,7 @@ class AStar(object):
               useful here
         """
         ########## Code starts here ##########
-        return self.occupancy.is_free(x)
+        return self.occupancy.is_free(np.asarray(x))
         ########## Code ends here ##########
 
     def distance(self, x1, x2):
@@ -211,9 +213,9 @@ class AStar(object):
         HINT: This should take one line. Tuples can be converted to numpy arrays using np.array().
         """
         ########## Code starts here ##########
-        # return np.linalg.norm(np.array(x1) - np.array(x2)) # euclidean
+        return np.linalg.norm(np.array(x1) - np.array(x2)) # euclidean
         # return np.sum(np.abs(np.array(x1)-np.array(x2))) # l1 norm
-        return np.max(np.abs(np.array(x1)-np.array(x2))) #l_inf norm
+        # return np.max(np.abs(np.array(x1)-np.array(x2))) #l_inf norm
         ########## Code ends here ##########
 
     def snap_to_grid(self, x):
@@ -254,9 +256,10 @@ class AStar(object):
             neighbor = tuple(self.resolution*np.array(d) + np.array(x))
             neighbor = self.snap_to_grid(neighbor)
             if self.is_free(neighbor):
-                if neighbor[0] >= 0 and neighbor[0] < self.occupancy.width:
-                    if neighbor[1] >= 0 and neighbor[1] < self.occupancy.height:
-                        neighbors.append(neighbor)
+                # if neighbor[0] >= 0 and neighbor[0] < self.occupancy.width:
+                #     if neighbor[1] >= 0 and neighbor[1] < self.occupancy.height:
+                #         neighbors.append(neighbor)
+                neighbors.append(neighbor)
         ########## Code ends here ##########
         return neighbors
 
