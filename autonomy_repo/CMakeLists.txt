@@ -13,11 +13,11 @@ install(PROGRAMS
     scripts/heading_controller.py
     scripts/p3_plot.py
     scripts/navigator.py
-    DESTINATION lib/ok_cs237a/${PROJECT_NAME}
+    DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY launch rviz
-        DESTINATION share/ok_cs237a/${PROJECT_NAME})
+        DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
