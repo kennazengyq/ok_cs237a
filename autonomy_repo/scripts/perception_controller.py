@@ -12,10 +12,8 @@ class PerceptionController(BaseHeadingController):
         self.kp = 10.0 
         self.declare_parameter("active", True)
  
-        # Task 4.1 - Create Boolean variable image_detected
         self.image_detected = False
  
-        # Task 4.1 - Create subscriber to /detector_bool topic
         self.detector_sub = self.create_subscription(
             Bool,
             '/detector_bool',
@@ -27,21 +25,23 @@ class PerceptionController(BaseHeadingController):
     def active(self) -> bool:
         return self.get_parameter("active").value
  
-    # Task 4.1 - Callback function for detector
     def detector_callback(self, msg: Bool):
-        """Callback that sets image_detected when target object is detected"""
         self.image_detected = msg.data
         if self.image_detected:
             self.get_logger().info("Target object detected! Stopping rotation.")
         else:
             self.get_logger().info("No target object detected. Continuing rotation.")
  
-    # Task 4.2 - Updated compute_control_with_goal method
     def compute_control_with_goal(self, currState: TurtleBotState, goalState: TurtleBotState) -> TurtleBotControl: 
         controlMsg = TurtleBotControl() 
  
         # Set omega to 0.2 if image NOT detected, 0 if image IS detected
-        if not self.image_detected:
+        # if not self.image_detected:
+        #     controlMsg.omega = 0.2
+        # else:
+        #     controlMsg.omega = 0.0
+
+        if self.active:
             controlMsg.omega = 0.2
         else:
             controlMsg.omega = 0.0

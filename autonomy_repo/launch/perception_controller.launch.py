@@ -43,7 +43,7 @@ def generate_launch_description():
             ),
             # student's perception controller node
             Node(
-                executable="perception_controller.launch.py",
+                executable="perception_controller.py",
                 package="autonomy_repo",
             ),
         ]
