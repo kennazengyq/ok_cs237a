@@ -14,12 +14,17 @@ class Frontier(Node):
         super().__init__("frontier_node")
         self.occupancy: T.Optional[StochOccupancyGrid2D] = None
         self.state: T.Optional[TurtleBotState] = None
+        self.is_navigating = False
+        self.exploration_complete = False
 
         self.map_sub = self.create_subscription(OccupancyGrid, "/map", self.map_callback, 10)
         self.state_sub = self.create_subscription(TurtleBotState, "/state", self.state_callback, 10)
         self.nav_success_sub = self.create_subscription(Bool, "/nav_success", self.nav_success_callback, 10)
 
         self.cmd_nav_pub = self.create_publisher(TurtleBotState, "/cmd_nav", 10)
+        self.exploration_complete_pub = self.create_publisher(Bool, "/exploration_complete", 10)
+        exploration_period = 0.1
+        self.create_timer(exploration_period, self.exploration_timer_callback)
 
 
     def map_callback(self, msg: OccupancyGrid) -> None:
@@ -50,17 +55,29 @@ class Frontier(Node):
         Args:
             msg (Bool): navigation success message
         """
-        if msg.data and self.occupancy is not None and self.state is not None:
+        self.is_navigating = False
+        if msg.data and not self.exploration_complete:
+            self.get_logger().info("Navigation to frontier succeeded, searching for next frontier...")
+            self.command_next_frontier()
+
+    def exploration_timer_callback(self) -> None:
+        """ Periodic timer callback to check exploration status """
+        if self.exploration_complete:
+            return
+
+        if self.occupancy is None or self.state is None:
+            return
+
+        if not self.is_navigating:
             frontier_states = self.explore(self.occupancy)
-            if frontier_states.shape[0] > 0:
-                closest_frontier = frontier_states[np.argmin(np.linalg.norm(frontier_states - np.array([self.state.x, self.state.y]), axis=1))]
-                self.get_logger().info(f"Next frontier to explore: {closest_frontier}")
-                cmd_nav_msg = TurtleBotControl()
-                cmd_nav_msg.x = closest_frontier[0]
-                cmd_nav_msg.y = closest_frontier[1]
-                self.cmd_nav_pub.publish(cmd_nav_msg)
+            if len(frontier_states) == 0:
+                self.get_logger().info("Exploration complete! No frontiers left to explore.")
+                self.exploration_complete = True
+                complete_msg = Bool()
+                complete_msg.data = True
+                self.exploration_complete_pub.publish(complete_msg)
             else:
-                self.get_logger().info("No frontiers found to explore.")
+                self.command_next_frontier()
 
     def explore(self, occupancy):
         """ returns potential states to explore
@@ -103,6 +120,22 @@ class Frontier(Node):
 
         ########################### Code ends here ###########################
         return np.array(frontier_states)
+    
+    def command_next_frontier(self):
+        frontier_states = self.explore(self.occupancy)
+        if len(frontier_states) == 0:
+            self.get_logger().info("No frontiers found to explore.")
+            return
+
+        distances = np.linalg.norm(frontier_states - np.array([self.state.x, self.state.y]), axis=1)
+        closest_frontier = frontier_states[np.argmin(distances)]
+        cmd_msg = TurtleBotState()
+        cmd_msg.x = closest_frontier[0]
+        cmd_msg.y = closest_frontier[1]
+        cmd_msg.theta = 0.0  
+        self.cmd_nav_pub.publish(cmd_msg)
+        self.is_navigating = True
+        self.get_logger().info(f"Commanding navigation to frontier at: {closest_frontier}")
 
 def main(args=None):
     rclpy.init(args=args)
