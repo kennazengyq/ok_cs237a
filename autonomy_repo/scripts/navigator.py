@@ -256,10 +256,10 @@ class AStar(object):
             neighbor = tuple(self.resolution*np.array(d) + np.array(x))
             neighbor = self.snap_to_grid(neighbor)
             if self.is_free(neighbor):
-                # if neighbor[0] >= 0 and neighbor[0] < self.occupancy.width:
-                #     if neighbor[1] >= 0 and neighbor[1] < self.occupancy.height:
-                #         neighbors.append(neighbor)
-                neighbors.append(neighbor)
+                if neighbor[0] >= self.statespace_lo[0] and neighbor[0] < self.statespace_hi[0]:
+                    if neighbor[1] >= self.statespace_lo[1] and neighbor[1] < self.statespace_hi[1]:
+                        neighbors.append(neighbor)
+                # neighbors.append(neighbor)
         ########## Code ends here ##########
         return neighbors
 
