@@ -185,6 +185,8 @@ class AStar(object):
         self.est_cost_through[self.x_init] = self.distance(self.x_init,self.x_goal)
 
         self.path = None        # the final path as a list of states
+        self.node = Node("Logger")
+        self.logger = self.node.get_logger()
 
     def is_free(self, x):
         """
