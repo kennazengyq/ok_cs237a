@@ -56,6 +56,7 @@ class Navigator(BaseNavigator):
         Returns:
             TurtleBotControl: control command
         """
+        self.get_logger().info("Computing Trajectory Control")
         x = state.x
         y = state.y
         th = state.theta
@@ -99,6 +100,7 @@ class Navigator(BaseNavigator):
         control = TurtleBotControl()
         control.omega = om
         control.v = V
+        self.get_logger().info("Ending Trajectory Control")
 
         return control
     
@@ -126,13 +128,19 @@ class Navigator(BaseNavigator):
         Returns:
             T.Optional[TrajectoryPlan]:
         """
+        self.get_logger().info("Computing Trajectory Plan")
         astar = AStar((-horizon+state.x, -horizon+state.y), (horizon+state.x, horizon+state.y), (state.x, state.y), (goal.x, goal.y), occupancy, resolution)
+        self.get_logger().info("a star constructed")
         solution = astar.solve()
+        self.get_logger().info("a start finished solving")
         if not solution:
+            self.get_logger().info("failed astar")
             return None
         path = np.asarray(astar.path)
         if len(path) < 4:
+            self.get_logger().info("path too short")
             return None
+        self.get_logger().info("solution found")
         
         self.reset()
 
@@ -198,6 +206,9 @@ class AStar(object):
               useful here
         """
         ########## Code starts here ##########
+        if (x[0]< self.statespace_lo[0] or x[0] > self.statespace_hi[0] or 
+            x[1] < self.statespace_lo[1] or x[1] > self.statespace_hi[1]):
+            return False
         return self.occupancy.is_free(np.asarray(x))
         ########## Code ends here ##########
 
@@ -213,7 +224,7 @@ class AStar(object):
         HINT: This should take one line. Tuples can be converted to numpy arrays using np.array().
         """
         ########## Code starts here ##########
-        return np.linalg.norm(np.array(x1) - np.array(x2)) # euclidean
+        return np.linalg.norm(np.array(x1) - np.array(x2), ord=2) # euclidean
         # return np.sum(np.abs(np.array(x1)-np.array(x2))) # l1 norm
         # return np.max(np.abs(np.array(x1)-np.array(x2))) #l_inf norm
         ########## Code ends here ##########
@@ -255,10 +266,8 @@ class AStar(object):
         for d in directions:
             neighbor = tuple(self.resolution*np.array(d) + np.array(x))
             neighbor = self.snap_to_grid(neighbor)
+            
             if self.is_free(neighbor):
-                # if neighbor[0] >= 0 and neighbor[0] < self.occupancy.width:
-                #     if neighbor[1] >= 0 and neighbor[1] < self.occupancy.height:
-                #         neighbors.append(neighbor)
                 neighbors.append(neighbor)
         ########## Code ends here ##########
         return neighbors
@@ -301,6 +310,7 @@ class AStar(object):
         """
         ########## Code starts here ##########
         while len(self.open_set) > 0:
+            length = str(len(self.open_set))
             x_curr = self.find_best_est_cost_through()
             if x_curr == self.x_goal:
                 self.path = self.reconstruct_path()
@@ -318,6 +328,7 @@ class AStar(object):
                 self.came_from[x_neigh] = x_curr
                 self.cost_to_arrive[x_neigh] = tentative_cost_to_arrive
                 self.est_cost_through[x_neigh] = tentative_cost_to_arrive + self.distance(x_neigh, self.x_goal)
+            
 
         return False
         ########## Code ends here ##########

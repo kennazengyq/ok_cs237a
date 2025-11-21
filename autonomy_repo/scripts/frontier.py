@@ -22,9 +22,16 @@ class Frontier(Node):
         self.nav_success_sub = self.create_subscription(Bool, "/nav_success", self.nav_success_callback, 10)
 
         self.cmd_nav_pub = self.create_publisher(TurtleBotState, "/cmd_nav", 10)
-        self.exploration_complete_pub = self.create_publisher(Bool, "/exploration_complete", 10)
-        exploration_period = 0.1
-        self.create_timer(exploration_period, self.exploration_timer_callback)
+        
+        # self.nav_success_pub = self.create_publisher(Bool, "/nav_success", 10)
+        
+        # complete_msg = Bool()
+        # complete_msg.data = True
+        # self.nav_success_pub.publish(complete_msg)
+        # self.exploration_complete_pub = self.create_publisher(Bool, "/exploration_complete", 10)
+        # exploration_period = 0.1
+        # self.create_timer(exploration_period, self.exploration_timer_callback)
+    
 
 
     def map_callback(self, msg: OccupancyGrid) -> None:
@@ -55,10 +62,12 @@ class Frontier(Node):
         Args:
             msg (Bool): navigation success message
         """
-        self.is_navigating = False
         if msg.data and not self.exploration_complete:
             self.get_logger().info("Navigation to frontier succeeded, searching for next frontier...")
             self.command_next_frontier()
+            
+        else:
+            self.get_logger().info("Nav unsuccesful")
 
     def exploration_timer_callback(self) -> None:
         """ Periodic timer callback to check exploration status """
@@ -77,7 +86,9 @@ class Frontier(Node):
                 complete_msg.data = True
                 self.exploration_complete_pub.publish(complete_msg)
             else:
+                pass
                 self.command_next_frontier()
+                
 
     def explore(self, occupancy):
         """ returns potential states to explore
@@ -116,15 +127,48 @@ class Frontier(Node):
         for x in range(occupancy.probs.shape[0]):
             for y in range(occupancy.probs.shape[1]):
                 if (unknown_counts[x, y] >= unknown_thresh and occupied_counts[x, y] == 0 and unoccupied_counts[x, y] >= unoccupied_thresh):
-                    frontier_states.append(occupancy.grid2state(np.array([x, y])))
-
+                    frontier_states.append(occupancy.grid2state(np.array([y, x])))
         ########################### Code ends here ###########################
         return np.array(frontier_states)
+        occupancy_occupied = np.array(occupancy.probs) >= 0.5
+        occupancy_unknown = np.array(occupancy.probs) < 0.0
+        occupancy_unoccupied = (np.array(occupancy.probs) >= 0.0) & (np.array(occupancy.probs) < 0.5)
+
+        kernel = np.ones((window_size, window_size))
+        mid_point = window_size // 2
+        kernel[mid_point, mid_point] = 0
+        occupied_neighbors = convolve2d(occupancy_occupied, kernel, mode='same')
+        unknown_neighbors = convolve2d(occupancy_unknown, kernel, mode='same')
+        unoccupied_neighbors = convolve2d(occupancy_unoccupied, kernel, mode='same')
+
+        frontier_cells = []
+
+        for x in range(occupancy_occupied.shape[0]):
+            for y in range(occupancy_occupied.shape[1]):
+                num_neighbors = unknown_neighbors[y, x] + occupied_neighbors[y, x] + unoccupied_neighbors[y, x]
+                if num_neighbors == 0:
+                    continue
+
+                unknown_perc = unknown_neighbors[y, x] / num_neighbors
+                occupied_perc = occupied_neighbors[y, x] / num_neighbors
+                unoccupied_perc = unoccupied_neighbors[y, x] / num_neighbors
+
+                if occupied_perc == 0 and unknown_perc >= 0.2 and unoccupied_perc >= 0.3:
+                    frontier_cells.append(np.array([x, y]))
+
+        frontier_states = []
+        for cell in frontier_cells:
+            frontier_states.append(occupancy.grid2state(cell))
+        if not frontier_states:
+            return np.array([]).reshape(0, 2) # Return empty (0,2) array if no frontiers
+        frontier_states = np.array(frontier_states)
+        
     
     def command_next_frontier(self):
         frontier_states = self.explore(self.occupancy)
         if len(frontier_states) == 0:
             self.get_logger().info("No frontiers found to explore.")
+            self.exploration_complete = True
             return
 
         distances = np.linalg.norm(frontier_states - np.array([self.state.x, self.state.y]), axis=1)

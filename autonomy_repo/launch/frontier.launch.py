@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -47,10 +47,13 @@ def generate_launch_description():
                 package="autonomy_repo",
                 parameters=[{"use_sim_time": use_sim_time}]
             ),
-
-            Node(
-                executable="frontier.py",
-                package="autonomy_repo",
+            
+            TimerAction(
+                period = 5.0,
+                actions =[ Node(
+                    executable="frontier.py",
+                    package="autonomy_repo"
+                )]
             )
         ]
     )
